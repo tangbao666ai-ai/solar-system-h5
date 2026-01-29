@@ -23,7 +23,8 @@ export function loadBodyTexture(id: string): Promise<THREE.Texture | null> {
     return Promise.resolve(makePlanetTexture(id));
   }
 
-  const url = `/textures/${file}`;
+  // Use relative URL so GitHub Pages subpath (/solar-system-h5/) works
+  const url = `textures/${file}`;
   const loader = new THREE.TextureLoader();
 
   return new Promise((resolve) => {
@@ -44,7 +45,8 @@ export function loadBodyTexture(id: string): Promise<THREE.Texture | null> {
 }
 
 export function loadSaturnRingAlpha(): Promise<THREE.Texture> {
-  const url = '/textures/2k_saturn_ring_alpha.png';
+  // Use relative URL so GitHub Pages subpath (/solar-system-h5/) works
+  const url = 'textures/2k_saturn_ring_alpha.png';
   const loader = new THREE.TextureLoader();
   return new Promise((resolve) => {
     loader.load(
