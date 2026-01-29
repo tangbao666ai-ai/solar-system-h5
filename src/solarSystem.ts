@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BODIES, BodySpec, byId } from './astroData';
+import { makePlanetTexture, makeSaturnRingTexture } from './textures';
 
 export type BodyInstance = {
   spec: BodySpec;
@@ -27,8 +28,13 @@ function makeOrbitLine(radius: number, segments = 256, color = 0x2a335a) {
 
 function degToRad(d = 0) { return (d * Math.PI) / 180; }
 
-function colorMaterial(color: number) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.0 });
+function colorMaterial(color: number, map?: THREE.Texture | null) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    map: map || undefined,
+    roughness: 0.85,
+    metalness: 0.0
+  });
 }
 
 export function createSolarSystem(): SolarSystem {
@@ -44,13 +50,23 @@ export function createSolarSystem(): SolarSystem {
 
   // Create instances
   for (const spec of BODIES) {
-    const geom = new THREE.SphereGeometry(spec.radius, 32, 24);
+    const geom = new THREE.SphereGeometry(spec.radius, 40, 28);
+
+    const map = spec.kind === 'sun' ? null : makePlanetTexture(spec.id);
+
     const mat = spec.kind === 'sun'
-      ? new THREE.MeshStandardMaterial({ color: spec.color, emissive: spec.color, emissiveIntensity: 1.0 })
-      : colorMaterial(spec.color);
+      ? new THREE.MeshStandardMaterial({
+          color: spec.color,
+          emissive: spec.color,
+          emissiveIntensity: 2.2,
+          roughness: 0.6
+        })
+      : colorMaterial(spec.color, map);
 
     const mesh = new THREE.Mesh(geom, mat);
     mesh.name = spec.id;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
 
     const pivot = new THREE.Object3D();
     pivot.name = spec.id + ':pivot';
@@ -90,13 +106,44 @@ export function createSolarSystem(): SolarSystem {
     pivot.add(inst.orbitLine);
   }
 
-  // add sun glow sprite-ish helper via point light
-  const sunLight = new THREE.PointLight(0xfff1c4, 3.2, 700, 1.8);
+  // Saturn ring (simple, helps realism)
+  {
+    const sat = bodies.get('saturn');
+    if (sat) {
+      const ringTex = makeSaturnRingTexture();
+      const ringMat = new THREE.MeshBasicMaterial({
+        map: ringTex,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      ringMat.map!.colorSpace = THREE.SRGBColorSpace;
+
+      const inner = sat.spec.radius * 1.35;
+      const outer = sat.spec.radius * 2.35;
+      const ringGeom = new THREE.RingGeometry(inner, outer, 128);
+      const ring = new THREE.Mesh(ringGeom, ringMat);
+      ring.name = 'saturn:ring';
+      ring.rotation.x = Math.PI / 2; // align with our orbit plane
+      // a slight tilt for nicer look
+      ring.rotation.z = degToRad(18);
+      sat.mesh.add(ring);
+    }
+  }
+
+  // add sun light (brighter) to improve readability
+  const sunLight = new THREE.PointLight(0xfff2cc, 6.5, 1000, 1.6);
   sunLight.position.set(0, 0, 0);
   root.add(sunLight);
 
-  // Add a dim ambient to keep night side visible
-  root.add(new THREE.AmbientLight(0x5d6aa6, 0.25));
+  // Key light for better shape definition (helps mobile screens)
+  const key = new THREE.DirectionalLight(0xdbe6ff, 1.15);
+  key.position.set(80, 120, 60);
+  root.add(key);
+
+  // Ambient to keep night side visible
+  root.add(new THREE.AmbientLight(0x8aa2ff, 0.55));
 
   // Update function
   const update = (tDays: number) => {
