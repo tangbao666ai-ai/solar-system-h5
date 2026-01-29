@@ -27,6 +27,24 @@ npm run preview
 
 产物在 `dist/`，可直接上传到 GitHub Pages / Netlify / Vercel static。
 
+## 真实贴图（可选）
+
+如果你能把下列文件放到 `public/textures/`（保持文件名一致），页面会自动加载“真实贴图”；缺失时会自动退回程序纹理：
+
+- `2k_sun.jpg`
+- `2k_mercury.jpg`
+- `2k_venus_surface.jpg`
+- `2k_earth_daymap.jpg`
+- `2k_mars.jpg`
+- `2k_jupiter.jpg`
+- `2k_saturn.jpg`
+- `2k_uranus.jpg`
+- `2k_neptune.jpg`
+- `2k_moon.jpg`
+- `2k_saturn_ring_alpha.png`
+
+（建议来源：SolarSystemScope 纹理包，或你自己的授权素材）
+
 ## 扩展建议
 
 - 增加“显示更多卫星”的开关（按需加载）

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import GUI from 'lil-gui';
 import { createSolarSystem, formatBodyInfo } from './solarSystem';
 
@@ -19,6 +20,16 @@ app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x05070c, 110, 380);
+
+// Global illumination (IBL) without external HDR files:
+// generates a reasonable environment map for PBR materials.
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environment = envTex;
+  // keep background dark (no skybox) for space feel
+  pmrem.dispose();
+}
 
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 65, 130);

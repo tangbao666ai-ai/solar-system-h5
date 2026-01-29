@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BODIES, BodySpec, byId } from './astroData';
-import { makePlanetTexture, makeSaturnRingTexture } from './textures';
+import { loadBodyTexture, loadSaturnRingAlpha } from './realTextures';
 
 export type BodyInstance = {
   spec: BodySpec;
@@ -52,7 +52,7 @@ export function createSolarSystem(): SolarSystem {
   for (const spec of BODIES) {
     const geom = new THREE.SphereGeometry(spec.radius, 40, 28);
 
-    const map = spec.kind === 'sun' ? null : makePlanetTexture(spec.id);
+    const map = null; // loaded async (real textures if available, else procedural fallback)
 
     const mat = spec.kind === 'sun'
       ? new THREE.MeshStandardMaterial({
@@ -62,6 +62,11 @@ export function createSolarSystem(): SolarSystem {
           roughness: 0.6
         })
       : colorMaterial(spec.color, map);
+
+    // envMapIntensity helps when we enable global environment lighting
+    if (mat instanceof THREE.MeshStandardMaterial) {
+      mat.envMapIntensity = spec.kind === 'planet' ? 1.1 : 0.9;
+    }
 
     const mesh = new THREE.Mesh(geom, mat);
     mesh.name = spec.id;
@@ -106,19 +111,16 @@ export function createSolarSystem(): SolarSystem {
     pivot.add(inst.orbitLine);
   }
 
-  // Saturn ring (simple, helps realism)
+  // Saturn ring (alpha texture if available)
   {
     const sat = bodies.get('saturn');
     if (sat) {
-      const ringTex = makeSaturnRingTexture();
       const ringMat = new THREE.MeshBasicMaterial({
-        map: ringTex,
         transparent: true,
         opacity: 0.9,
         side: THREE.DoubleSide,
         depthWrite: false
       });
-      ringMat.map!.colorSpace = THREE.SRGBColorSpace;
 
       const inner = sat.spec.radius * 1.35;
       const outer = sat.spec.radius * 2.35;
@@ -126,9 +128,14 @@ export function createSolarSystem(): SolarSystem {
       const ring = new THREE.Mesh(ringGeom, ringMat);
       ring.name = 'saturn:ring';
       ring.rotation.x = Math.PI / 2; // align with our orbit plane
-      // a slight tilt for nicer look
       ring.rotation.z = degToRad(18);
       sat.mesh.add(ring);
+
+      // load alpha map (real if present, else procedural)
+      loadSaturnRingAlpha().then((tex) => {
+        ringMat.map = tex;
+        ringMat.needsUpdate = true;
+      });
     }
   }
 
@@ -144,6 +151,30 @@ export function createSolarSystem(): SolarSystem {
 
   // Ambient to keep night side visible
   root.add(new THREE.AmbientLight(0x8aa2ff, 0.55));
+
+  // Load textures async (real if you add files under public/textures)
+  for (const inst of bodies.values()) {
+    const id = inst.spec.id;
+    const mat = inst.mesh.material;
+
+    if (id === 'sun') {
+      // optional: allow sun texture, but keep emissive so it looks like a light source
+      loadBodyTexture('sun').then((tex) => {
+        if (tex && mat instanceof THREE.MeshStandardMaterial) {
+          mat.map = tex;
+          mat.needsUpdate = true;
+        }
+      });
+      continue;
+    }
+
+    loadBodyTexture(id).then((tex) => {
+      if (tex && mat instanceof THREE.MeshStandardMaterial) {
+        mat.map = tex;
+        mat.needsUpdate = true;
+      }
+    });
+  }
 
   // Update function
   const update = (tDays: number) => {
